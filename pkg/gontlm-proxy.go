@@ -3,10 +3,12 @@ package ntlm_proxy
 import (
 	"context"
 	"flag"
+	"fmt"
 	"net"
 	"net/http"
 	"net/url"
 	"os"
+
 	// "regexp"
 	"strings"
 	"time"
@@ -78,6 +80,7 @@ func Run() {
 			}
 		}
 		log.Infof("Forwarding Proxy is: %s", proxyUrl.Redacted())
+		log.Infof("Beni was here!")
 	}
 
 	//
@@ -129,6 +132,8 @@ func Run() {
 		return dctx.(proxyplease.DialContext)
 	}
 
+	log.Infof("Beni was here 2!")
+
 	//
 	// Proxy DialContexts
 	//
@@ -146,6 +151,8 @@ func Run() {
 
 		return proxyDialer("https", addr, proxyUrl)(ctx, network, addr)
 	}
+
+	log.Infof("Beni was here 3")
 
 	//
 	// HTTP Handler
@@ -172,10 +179,40 @@ func Run() {
 		// 	TLSConfig: goproxy.TLSConfigFromCA(&goproxy.GoproxyCa),
 		// }
 
+		//Beni.i
+		//ctx.Req.RemoteAddr
+		//log.Infof("[BENI] Remote address: ", ctx.Req.RemoteAddr)
+		fmt.Println("[BENI] Remote address: %s", ctx.Req.RemoteAddr)
+		//Beni.f
+
 		// return HTTPSConnect, host
 		return goproxy.OkConnect, host
 	}
 	proxy.OnRequest().HandleConnect(AlwaysMitm)
+
+	//proxy.OnRequest(goproxy.SrcIpIs("192.168.12.2")) --> in questo caso prosegue SOLO SE l'ip sorgente e' 192.168.12.2, questa chiamata non va bene in caso si vogliano bloccare tutti
+	//   quelli che NON sono 192.168.12.2
+
+	//questa funzione invece viene chiamata in tutti i casi, all'interno poi si verifica se l'ip e' autorizzato o meno
+	proxy.OnRequest().DoFunc(
+		func(r *http.Request, ctx *goproxy.ProxyCtx) (*http.Request, *http.Response) {
+			log.Infof("[BENI] Remote address: %s", r.RemoteAddr)
+
+			if strings.HasPrefix(r.RemoteAddr, "127.0.0.2:") {
+				return r, nil
+			}
+
+			return r, goproxy.NewResponse(r,
+				goproxy.ContentTypeText, http.StatusForbidden,
+				"This ip ("+r.RemoteAddr+") is not authorized!!")
+		})
+	//	proxy.OnRequest().DoFunc(
+	//		func(r *http.Request, ctx *goproxy.ProxyCtx) (*http.Request, *http.Response) {
+	//			log.Infof("[BENI] Remote address: %s", r.RemoteAddr)
+	//			//r.Header.Set("X-GoProxy","yxorPoG-X")
+	//			return r, nil
+	//		})
+	log.Infof("Beni was here 4")
 
 	//
 	// Request Handling
